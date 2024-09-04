@@ -1,0 +1,29 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=application/x-cd-image;model/x.stl-binary;application/x-raw-disk-image;
+Actions=mount;unmount;unmount_all
+X-KDE-Priority=TopLevel
+X-KDE-StartupNotify=false
+Icon=application-x-cd-image
+X-KDE-Submenu=Mount/Unmount iso image
+
+[Desktop Action mount]
+Name=Mount
+Icon=media-mount
+# Mount the file only if it is not already mounted
+Exec=sh -c 'FILE="%f"; LOOPDEV=$(losetup -j "$FILE" | cut -d ":" -f 1); if [ -z "$LOOPDEV" ]; then LOOPDEV=$(udisksctl loop-setup -r -f "$FILE" | grep -oE "/dev/loop[0-9]+"); fi; if lsblk -lno NAME | grep -q "^$(basename $LOOPDEV)p"; then for PARTITION in $(lsblk -lno NAME | grep "^$(basename $LOOPDEV)p"); do udisksctl mount -b "/dev/$PARTITION"; done; else udisksctl mount -b "$LOOPDEV"; fi'
+
+
+[Desktop Action unmount]
+Name=Unmount
+Icon=media-eject
+# Unmount the file and delete the loop device
+Exec=sh -c 'LOOPDEV=$(losetup -j "%f" | cut -d ":" -f 1); for PART in $(lsblk -n -l -o NAME | grep "^$(basename "$LOOPDEV")[p][0-9]*$"); do udisksctl unmount -b "/dev/$PART"; done; udisksctl unmount -b "$LOOPDEV"; sleep 1; if ! mount | grep -q "$LOOPDEV"; then udisksctl loop-delete -b "$LOOPDEV"; fi'
+
+
+[Desktop Action unmount_all]
+Name=Unmount All
+Icon=media-eject
+# Unmount all loop devices
+Exec=sh -c 'for LOOPDEV in $(losetup -a | cut -d ":" -f 1); do lsblk -n -l -o NAME | grep -E "^$(basename "$LOOPDEV")[p][0-9]*$" | xargs -I{} udisksctl unmount -b "/dev/{}" 2>/dev/null; udisksctl unmount -b "$LOOPDEV" 2>/dev/null; udisksctl loop-delete -b "$LOOPDEV" 2>/dev/null; done'
